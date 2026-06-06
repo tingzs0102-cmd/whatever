@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>旅途账本 · Wanderbill</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root{
+  --cream:#FAF8F4;--ink:#1A1814;--muted:#8A877F;--border:#E8E4DC;
+  --teal:#1D9E75;--teal-lt:#E1F5EE;--coral:#D85A30;--coral-lt:#FAECE7;
+  --blue:#185FA5;--blue-lt:#E6F1FB;--amber:#BA7517;--amber-lt:#FAEEDA;
+  --pink:#993556;--pink-lt:#FBEAF0;
+  --r:12px;--r-sm:8px;--r-xs:5px;
+  --shadow:0 1px 3px rgba(26,24,20,.06),0 4px 16px rgba(26,24,20,.04);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--ink);min-height:100vh;font-size:15px}
+h1,h2,h3{font-family:'DM Serif Display',serif}
+
+/* ── layout ── */
+.shell{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+.sidebar-nav{background:#fff;border-right:1px solid var(--border);padding:1.5rem 0;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+.main{padding:2rem 2rem 4rem;overflow-x:hidden}
+
+/* ── sidebar nav ── */
+.logo{padding:0 1.25rem 1.5rem;border-bottom:1px solid var(--border);margin-bottom:1rem}
+.logo-mark{font-size:20px;font-family:'DM Serif Display',serif;color:var(--ink)}
+.logo-sub{font-size:11px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-top:1px}
+.nav-section{padding:0 .75rem;margin-bottom:.25rem}
+.nav-label{font-size:10px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;padding:.5rem .5rem .25rem}
+.nav-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:var(--r-sm);font-size:13px;color:var(--muted);cursor:pointer;transition:all .15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nav-item:hover{background:var(--cream);color:var(--ink)}
+.nav-item.active{background:var(--ink);color:#fff}
+.nav-item .icon{width:16px;height:16px;flex-shrink:0;opacity:.7}
+.nav-item.active .icon{opacity:1}
+.nav-divider{height:1px;background:var(--border);margin:.75rem .75rem}
+.trip-list-nav{flex:1}
+.add-trip-btn{margin:.75rem;padding:8px 12px;background:var(--teal-lt);color:var(--teal);border:none;border-radius:var(--r-sm);font-size:13px;font-weight:500;cursor:pointer;width:calc(100% - 1.5rem);text-align:left;display:flex;align-items:center;gap:6px}
+.add-trip-btn:hover{background:#c5edd9}
+
+/* ── trip nav items ── */
+.trip-nav-item{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:var(--r-sm);cursor:pointer;margin:0 .75rem 2px;transition:all .15s}
+.trip-nav-item:hover{background:var(--cream)}
+.trip-nav-item.active{background:var(--cream)}
+.trip-nav-left{display:flex;align-items:center;gap:8px;min-width:0}
+.trip-emoji{font-size:15px;flex-shrink:0}
+.trip-nav-name{font-size:13px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100px}
+.trip-nav-date{font-size:10px;color:var(--muted)}
+.trip-del{font-size:14px;color:var(--muted);opacity:0;cursor:pointer;padding:2px 4px;border-radius:3px}
+.trip-nav-item:hover .trip-del{opacity:1}
+.trip-del:hover{background:var(--coral-lt);color:var(--coral)}
+
+/* ── page header ── */
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.75rem;flex-wrap:wrap;gap:12px}
+.page-title{font-size:28px;line-height:1.1}
+.page-title-sub{font-size:13px;color:var(--muted);margin-top:4px;font-family:'DM Sans',sans-serif}
+.header-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+
+/* ── currency bar ── */
+.cur-bar{display:flex;background:#fff;border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden}
+.cur-btn{padding:5px 11px;font-size:12px;font-weight:500;background:transparent;border:none;cursor:pointer;color:var(--muted);transition:all .15s}
+.cur-btn.active{background:var(--ink);color:#fff}
+.rate-pill{display:flex;align-items:center;gap:5px;background:#fff;border:1px solid var(--border);border-radius:var(--r-sm);padding:5px 10px;font-size:11px;color:var(--muted)}
+.dot{width:6px;height:6px;border-radius:50%;background:#ccc;flex-shrink:0}
+.dot.live{background:var(--teal)}
+.dot.offline{background:var(--amber)}
+.btn-primary{background:var(--ink);color:#fff;border:none;border-radius:var(--r-sm);padding:7px 15px;font-size:13px;font-weight:500;cursor:pointer;transition:opacity .15s}
+.btn-primary:hover{opacity:.85}
+.btn-outline{background:#fff;color:var(--ink);border:1px solid var(--border);border-radius:var(--r-sm);padding:7px 15px;font-size:13px;cursor:pointer;transition:all .15s}
+.btn-outline:hover{border-color:var(--ink)}
+.btn-ghost{background:transparent;color:var(--muted);border:none;border-radius:var(--r-sm);padding:7px 12px;font-size:13px;cursor:pointer}
+.btn-ghost:hover{background:var(--cream);color:var(--ink)}
+
+/* ── stats row ── */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1.75rem}
+.sc{background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:14px 16px}
+.sc-label{font-size:11px;color:var(--muted);margin-bottom:5px;letter-spacing:.03em}
+.sc-val{font-size:22px;font-weight:300;color:var(--ink);font-family:'DM Serif Display',serif}
+.sc-sub{font-size:11px;color:var(--muted);margin-top:3px}
+.sc-pos{color:var(--teal)}
+.sc-neg{color:var(--coral)}
+
+/* ── tabs ── */
+.tabs{display:flex;gap:1px;border-bottom:1px solid var(--border);margin-bottom:1.25rem}
+.tab{padding:7px 16px;font-size:13px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s}
+.tab.active{color:var(--ink);border-bottom-color:var(--ink);font-weight:500}
+.tab:hover:not(.active){color:var(--ink)}
+
+/* ── main content grid ── */
+.content-grid{display:grid;grid-template-columns:1fr 270px;gap:1.25rem}
+
+/* ── expense list ── */
+.expense-list{display:flex;flex-direction:column;gap:6px}
+.ei{background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:11px 14px;display:flex;align-items:center;gap:12px;transition:border-color .15s;cursor:default}
+.ei:hover{border-color:rgba(26,24,20,.2)}
+.cat-ic{width:36px;height:36px;border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.ei-body{flex:1;min-width:0}
+.ei-name{font-size:14px;font-weight:500}
+.ei-meta{font-size:11px;color:var(--muted);margin-top:2px}
+.ei-right{text-align:right;flex-shrink:0}
+.ei-amt{font-size:14px;font-weight:500}
+.ei-sub{font-size:11px;color:var(--muted);margin-top:1px}
+.ei-del{font-size:13px;color:var(--muted);opacity:0;background:none;border:none;cursor:pointer;padding:2px 5px;border-radius:3px;margin-left:6px}
+.ei:hover .ei-del{opacity:1}
+.ei-del:hover{background:var(--coral-lt);color:var(--coral)}
+
+/* ── sidebar cards ── */
+.side-card{background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:10px}
+.side-title{font-size:10px;font-weight:500;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:12px}
+
+/* ── budget bars ── */
+.brow{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.brow-icon{font-size:14px;width:20px;text-align:center}
+.brow-bg{flex:1;height:5px;background:var(--cream);border-radius:3px;overflow:hidden}
+.brow-bar{height:100%;border-radius:3px;transition:width .4s}
+.brow-amt{font-size:11px;color:var(--muted);min-width:48px;text-align:right}
+
+/* ── member rows ── */
+.mrow{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+.av{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;flex-shrink:0}
+.mrow-name{font-size:13px;flex:1}
+.mrow-bal{font-size:13px;font-weight:500}
+
+/* ── settle items ── */
+.srow{display:flex;align-items:center;gap:5px;padding:5px 0;border-top:1px solid var(--border);font-size:12px}
+.sarrow{color:var(--muted)}
+
+/* ── heatmap ── */
+.hm-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.hm-dow{font-size:10px;color:var(--muted);text-align:center;padding-bottom:3px}
+.hm-cell{aspect-ratio:1;border-radius:3px;cursor:pointer;transition:opacity .1s}
+.hm-cell:hover{opacity:.75}
+.hm-empty{aspect-ratio:1}
+.hm-legend{display:flex;align-items:center;gap:5px;margin-top:10px}
+.hm-leg-sq{width:12px;height:12px;border-radius:2px}
+.hm-leg-txt{font-size:10px;color:var(--muted)}
+.day-detail{background:var(--cream);border-radius:var(--r-sm);padding:12px;margin-top:12px;min-height:60px}
+.day-detail-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:4px 0;border-top:1px solid var(--border)}
+.day-detail-row:first-child{border-top:none}
+
+/* ── AI panel ── */
+.ai-panel{background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;margin-top:1.25rem}
+.ai-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.ai-gem{width:28px;height:28px;border-radius:var(--r-xs);background:linear-gradient(135deg,#EEEDFE,#E1F5EE);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.ai-label{font-size:14px;font-weight:500}
+.ai-body{font-size:13px;color:var(--muted);line-height:1.7}
+.ai-body strong{color:var(--ink);font-weight:500}
+.ai-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+
+/* ── charts view ── */
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+.chart-card{background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:16px}
+.chart-title{font-size:12px;color:var(--muted);margin-bottom:12px;letter-spacing:.04em;text-transform:uppercase}
+.chart-wrap{position:relative;height:200px}
+.chart-wrap-tall{position:relative;height:260px}
+
+/* ── modals ── */
+.overlay{position:fixed;inset:0;background:rgba(26,24,20,.35);z-index:100;display:none;align-items:center;justify-content:center;padding:1rem}
+.overlay.open{display:flex}
+.modal{background:#fff;border-radius:var(--r);padding:1.5rem;width:100%;max-width:380px;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow)}
+.modal-title{font-size:18px;font-family:'DM Serif Display',serif;margin-bottom:1.25rem}
+.fl{margin-bottom:12px}
+.fl-label{font-size:12px;color:var(--muted);margin-bottom:4px}
+.fl input,.fl select,.fl textarea{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r-sm);font-size:14px;font-family:'DM Sans',sans-serif;background:#fff;color:var(--ink);outline:none}
+.fl input:focus,.fl select:focus{border-color:rgba(26,24,20,.4)}
+.chip-wrap{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.chip{padding:4px 11px;border-radius:20px;font-size:12px;border:1px solid var(--border);cursor:pointer;color:var(--muted);background:#fff;transition:all .12s}
+.chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:1.25rem}
+.emoji-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;margin-top:4px}
+.emoji-opt{font-size:18px;text-align:center;padding:6px;border-radius:var(--r-sm);cursor:pointer;border:1px solid transparent}
+.emoji-opt:hover,.emoji-opt.picked{border-color:var(--border);background:var(--cream)}
+
+/* ── empty state ── */
+.empty{text-align:center;padding:3rem 1rem;color:var(--muted)}
+.empty-icon{font-size:40px;margin-bottom:12px;display:block}
+.empty-txt{font-size:14px}
+
+/* ── print / PDF export ── */
+.export-bar{display:flex;align-items:center;gap:8px;background:var(--teal-lt);border:1px solid #9FE1CB;border-radius:var(--r-sm);padding:10px 14px;margin-bottom:1.25rem;font-size:13px;color:#0F6E56}
+.export-bar strong{font-weight:500}
+
+/* ── welcome screen ── */
+.welcome{text-align:center;padding:5rem 2rem;max-width:440px;margin:0 auto}
+.welcome h2{font-size:36px;margin-bottom:.75rem;line-height:1.1}
+.welcome p{font-size:14px;color:var(--muted);line-height:1.7;margin-bottom:1.75rem}
+
+/* ── responsive ── */
+@media(max-width:900px){
+  .shell{grid-template-columns:1fr}
+  .sidebar-nav{display:none}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .content-grid{grid-template-columns:1fr}
+  .chart-grid{grid-template-columns:1fr}
+}
+@media print{
+  .sidebar-nav,.header-actions,.add-btn,.ei-del,.trip-del,.overlay,.ai-actions{display:none!important}
+  .shell{display:block}
+  body{background:#fff}
+  .sc,.ei,.side-card,.ai-panel,.chart-card{box-shadow:none;border:1px solid #ddd}
+}
+</style>
+</head>
+<body>
+
+<!-- ── ADD TRIP MODAL ── -->
+<div class="overlay" id="trip-modal">
+  <div class="modal">
+    <div class="modal-title">新建旅行</div>
+    <div class="fl"><div class="fl-label">旅行名称</div><input type="text" id="tm-name" placeholder="泰国双城记"/></div>
+    <div class="fl"><div class="fl-label">出发日期</div><input type="date" id="tm-start"/></div>
+    <div class="fl"><div class="fl-label">结束日期</div><input type="date" id="tm-end"/></div>
+    <div class="fl"><div class="fl-label">旅行图标</div>
+      <div class="emoji-grid" id="trip-emoji-grid"></div>
+    </div>
+    <div class="fl"><div class="fl-label">成员（逗号分隔）</div><input type="text" id="tm-members" placeholder="小明, 小红, 小李"/></div>
+    <div class="fl"><div class="fl-label">总预算（CNY ¥）</div><input type="number" id="tm-budget" placeholder="12000"/></div>
+    <div class="modal-footer">
+      <button class="btn-outline" onclick="closeModal('trip-modal')">取消</button>
+      <button class="btn-primary" onclick="createTrip()">创建旅行</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── ADD EXPENSE MODAL ── -->
+<div class="overlay" id="exp-modal">
+  <div class="modal">
+    <div class="modal-title">添加支出</div>
+    <div class="fl"><div class="fl-label">描述</div><input type="text" id="em-desc" placeholder="清迈大象营体验"/></div>
+    <div class="fl"><div class="fl-label">金额（CNY ¥）</div><input type="number" id="em-amt" placeholder="0" min="0" step="0.01"/></div>
+    <div class="fl"><div class="fl-label">日期</div><input type="date" id="em-date"/></div>
+    <div class="fl"><div class="fl-label">分类</div>
+      <select id="em-cat">
+        <option value="food">🍜 餐饮</option>
+        <option value="stay">🏨 住宿</option>
+        <option value="transport">🚌 交通</option>
+        <option value="fun">🎡 娱乐</option>
+        <option value="other">📦 其他</option>
+      </select>
+    </div>
+    <div class="fl"><div class="fl-label">付款人</div><select id="em-payer"></select></div>
+    <div class="fl"><div class="fl-label">分摊成员</div><div class="chip-wrap" id="em-chips"></div></div>
+    <div class="modal-footer">
+      <button class="btn-outline" onclick="closeModal('exp-modal')">取消</button>
+      <button class="btn-primary" onclick="saveExpense()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── SHELL ── -->
+<div class="shell">
+
+  <!-- sidebar -->
+  <nav class="sidebar-nav">
+    <div class="logo">
+      <div class="logo-mark">Wanderbill</div>
+      <div class="logo-sub">旅途账本</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">视图</div>
+      <div class="nav-item active" onclick="switchView('expenses',this)">
+        <svg class="icon" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="4" width="12" height="2" rx="1"/><rect x="2" y="8" width="9" height="2" rx="1"/><rect x="2" y="12" width="6" height="2" rx="1"/></svg>
+        支出明细
+      </div>
+      <div class="nav-item" onclick="switchView('heatmap',this)">
+        <svg class="icon" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="6" rx="1" opacity=".5"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1" opacity=".3"/></svg>
+        消费热力图
+      </div>
+      <div class="nav-item" onclick="switchView('charts',this)">
+        <svg class="icon" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="9" width="3" height="6" rx="1"/><rect x="6" y="5" width="3" height="10" rx="1"/><rect x="11" y="2" width="3" height="13" rx="1"/></svg>
+        图表分析
+      </div>
+    </div>
+    <div class="nav-divider"></div>
+    <div class="nav-section nav-label">我的旅行</div>
+    <div class="trip-list-nav" id="trip-list-nav"></div>
+    <button class="add-trip-btn" onclick="openModal('trip-modal')">＋ 新建旅行</button>
+  </nav>
+
+  <!-- main -->
+  <main class="main" id="main-content">
+    <!-- rendered by JS -->
+  </main>
+</div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────────
+const CATS = {
+  food:  {icon:'🍜', label:'餐饮', bg:'#E1F5EE', budget:2500},
+  stay:  {icon:'🏨', label:'住宿', bg:'#E6F1FB', budget:4000},
+  transport:{icon:'🚌',label:'交通',bg:'#FAEEDA',budget:2000},
+  fun:   {icon:'🎡', label:'娱乐', bg:'#FBEAF0', budget:1500},
+  other: {icon:'📦', label:'其他', bg:'#F1EFE8', budget:2000},
+};
+const AV_COLORS=[['#EEEDFE','#3C3489'],['#E1F5EE','#085041'],['#FAEEDA','#633806'],['#FBEAF0','#72243E'],['#E6F1FB','#0C447C'],['#EAF3DE','#27500A']];
+const EMOJIS=['✈️','🏖️','🏔️','🏙️','🌏','🗺️','🚢','🎌','🌴','🌸','🍜','🎡'];
+const RATES={CNY:1,SGD:0.185,THB:4.87,USD:0.138};
+const SYMS={CNY:'¥',SGD:'S$',THB:'฿',USD:'$'};
+
+let state = {
+  trips: [],
+  activeTripId: null,
+  curCur: 'CNY',
+  liveRates: {...RATES},
+  ratesLive: false,
+  view: 'expenses',
+  pickedEmoji: '✈️',
+};
+
+function save(){ try{localStorage.setItem('wb_state', JSON.stringify(state))}catch(e){} }
+function load(){
+  try{
+    const d=localStorage.getItem('wb_state');
+    if(d){ const p=JSON.parse(d); Object.assign(state,p); state.liveRates={...RATES,...(p.liveRates||{})}; }
+  }catch(e){}
+  if(!state.trips.length) seedData();
+}
+
+function seedData(){
+  const id='trip_'+Date.now();
+  state.trips=[{
+    id, name:'东南亚十日游', emoji:'✈️',
+    start:'2025-03-10', end:'2025-03-20',
+    members:['小明','小红','小李','小张'], budget:12000,
+    expenses:[
+      {id:'e1',desc:'曼谷民宿（4晚）',amount:3200,cat:'stay',payer:'小明',members:['小明','小红','小李','小张'],date:'2025-03-10'},
+      {id:'e2',desc:'清迈大象营',amount:960,cat:'fun',payer:'小明',members:['小明','小红','小李','小张'],date:'2025-03-13'},
+      {id:'e3',desc:'高铁 BKK→CNX',amount:1680,cat:'transport',payer:'小李',members:['小明','小红','小李','小张'],date:'2025-03-12'},
+      {id:'e4',desc:'街头夜市晚餐',amount:580,cat:'food',payer:'小红',members:['小明','小红','小李','小张'],date:'2025-03-11'},
+      {id:'e5',desc:'海鲜午餐',amount:420,cat:'food',payer:'小张',members:['小明','小红','小张'],date:'2025-03-14'},
+      {id:'e6',desc:'摩托车租赁',amount:380,cat:'transport',payer:'小明',members:['小明','小李'],date:'2025-03-13'},
+      {id:'e7',desc:'寺庙门票',amount:200,cat:'fun',payer:'小红',members:['小明','小红','小李','小张'],date:'2025-03-12'},
+      {id:'e8',desc:'清迈民宿（2晚）',amount:1400,cat:'stay',payer:'小李',members:['小明','小红','小李','小张'],date:'2025-03-13'},
+      {id:'e9',desc:'按摩 SPA',amount:320,cat:'fun',payer:'小张',members:['小红','小张'],date:'2025-03-14'},
+      {id:'e10',desc:'便利店零食',amount:180,cat:'food',payer:'小明',members:['小明','小红','小李','小张'],date:'2025-03-11'},
+    ]
+  }];
+  state.activeTripId=id;
+}
+
+// ── RATES ─────────────────────────────────────────────────────
+async function fetchRates(){
+  try{
+    const r=await fetch('https://api.frankfurter.app/latest?from=CNY&to=SGD,THB,USD');
+    if(r.ok){
+      const d=await r.json();
+      state.liveRates={CNY:1,...d.rates};
+      state.ratesLive=true;
+    }
+  }catch(e){}
+  renderAll();
+}
+
+// ── HELPERS ───────────────────────────────────────────────────
+function fmt(cny){
+  const v=cny*(state.liveRates[state.curCur]||RATES[state.curCur]);
+  const s=state.curCur;
+  return SYMS[s]+(s==='CNY'?Math.round(v).toLocaleString('zh'):v.toFixed(s==='THB'?0:1));
+}
+function uid(){return 'e'+Date.now()+Math.random().toString(36).slice(2,6)}
+function activeTrip(){return state.trips.find(t=>t.id===state.activeTripId)}
+function totalCNY(exps){return exps.reduce((s,e)=>s+e.amount,0)}
+
+function balances(trip){
+  const paid={},owed={};
+  trip.members.forEach(m=>{paid[m]=0;owed[m]=0});
+  trip.expenses.forEach(e=>{
+    paid[e.payer]=(paid[e.payer]||0)+e.amount;
+    const sh=e.amount/e.members.length;
+    e.members.forEach(m=>owed[m]=(owed[m]||0)+sh);
+  });
+  const bal={};
+  trip.members.forEach(m=>bal[m]=Math.round(paid[m]-owed[m]));
+  return bal;
+}
+
+function settlements(trip){
+  const bal=balances(trip);
+  const debtors=trip.members.filter(m=>bal[m]<0).map(m=>({name:m,amt:-bal[m]}));
+  const cred=trip.members.filter(m=>bal[m]>0).map(m=>({name:m,amt:bal[m]}));
+  const txns=[];
+  let di=0,ci=0;
+  while(di<debtors.length&&ci<cred.length){
+    const pay=Math.min(debtors[di].amt,cred[ci].amt);
+    if(pay>0.5)txns.push({from:debtors[di].name,to:cred[ci].name,amt:Math.round(pay)});
+    debtors[di].amt-=pay;cred[ci].amt-=pay;
+    if(debtors[di].amt<0.5)di++;if(cred[ci].amt<0.5)ci++;
+  }
+  return txns;
+}
+
+// ── RENDER ALL ────────────────────────────────────────────────
+function renderAll(){
+  renderSidebarTrips();
+  const trip=activeTrip();
+  const mc=document.getElementById('main-content');
+  if(!trip){mc.innerHTML=renderWelcome();return;}
+  mc.innerHTML=`
+    ${renderHeader(trip)}
+    ${renderStats(trip)}
+    ${renderTabs()}
+    <div id="view-area"></div>
+    ${renderAI(trip)}
+  `;
+  renderView();
+}
+
+function renderWelcome(){return`<div class="welcome"><h2>开启你的<i>旅途账本</i></h2><p>记录每一次冒险的消费，智能分摊，多货币，热力日历——一键导出账单。</p><button class="btn-primary" style="font-size:15px;padding:10px 24px" onclick="openModal('trip-modal')">创建第一段旅行 →</button></div>`}
+
+function renderSidebarTrips(){
+  const el=document.getElementById('trip-list-nav');
+  if(!el)return;
+  el.innerHTML=state.trips.map(t=>`
+    <div class="trip-nav-item${t.id===state.activeTripId?' active':''}" onclick="selectTrip('${t.id}')">
+      <div class="trip-nav-left">
+        <span class="trip-emoji">${t.emoji}</span>
+        <div>
+          <div class="trip-nav-name">${t.name}</div>
+          <div class="trip-nav-date">${t.start} ~ ${t.end}</div>
+        </div>
+      </div>
+      <span class="trip-del" onclick="event.stopPropagation();deleteTrip('${t.id}')">✕</span>
+    </div>`).join('')||'<div style="padding:8px 1.25rem;font-size:12px;color:var(--muted)">暂无旅行</div>';
+}
+
+function renderHeader(trip){
+  const now=new Date().toLocaleDateString('zh',{month:'short',day:'numeric'});
+  return`<div class="page-header">
+    <div>
+      <h1 class="page-title">${trip.emoji} ${trip.name}</h1>
+      <div class="page-title-sub">${trip.start} — ${trip.end} · ${trip.members.length}人同行</div>
+    </div>
+    <div class="header-actions">
+      <div class="rate-pill">
+        <div class="dot ${state.ratesLive?'live':'offline'}"></div>
+        <span>${state.ratesLive?'实时汇率':'离线汇率'}</span>
+      </div>
+      <div class="cur-bar">
+        ${['CNY','SGD','THB','USD'].map(c=>`<button class="cur-btn${state.curCur===c?' active':''}" onclick="setCur('${c}')">${SYMS[c]} ${c}</button>`).join('')}
+      </div>
+      <button class="btn-outline" onclick="exportPDF()">⬇ 导出 PDF</button>
+      <button class="btn-primary" onclick="openExpModal()">＋ 添加支出</button>
+    </div>
+  </div>`;
+}
+
+function renderStats(trip){
+  const total=totalCNY(trip.expenses);
+  const rem=trip.budget-total;
+  const byDay={};
+  trip.expenses.forEach(e=>byDay[e.date]=(byDay[e.date]||0)+e.amount);
+  const dates=Object.keys(byDay).sort();
+  const todayAmt=byDay[dates[dates.length-1]]||0;
+  const todayLabel=dates[dates.length-1]?dates[dates.length-1].slice(5):'--';
+  return`<div class="stats">
+    <div class="sc"><div class="sc-label">总支出</div><div class="sc-val">${fmt(total)}</div><div class="sc-sub">${trip.expenses.length} 笔记录</div></div>
+    <div class="sc"><div class="sc-label">人均花费</div><div class="sc-val">${fmt(Math.round(total/trip.members.length))}</div><div class="sc-sub">${trip.members.length}人平均</div></div>
+    <div class="sc"><div class="sc-label">预算余额</div><div class="sc-val ${rem>=0?'sc-pos':'sc-neg'}">${rem>=0?'+':''}${fmt(rem)}</div><div class="sc-sub">预算 ${fmt(trip.budget)}</div></div>
+    <div class="sc"><div class="sc-label">最近一天</div><div class="sc-val">${fmt(todayAmt)}</div><div class="sc-sub">${todayLabel}</div></div>
+  </div>`;
+}
+
+function renderTabs(){
+  const tabs=[{id:'expenses',label:'支出明细'},{id:'heatmap',label:'消费热力图'},{id:'charts',label:'图表分析'}];
+  return`<div class="tabs">${tabs.map(t=>`<div class="tab${state.view===t.id?' active':''}" onclick="switchView('${t.id}',null)">${t.label}</div>`).join('')}</div>`;
+}
+
+function renderView(){
+  const va=document.getElementById('view-area');
+  if(!va)return;
+  const trip=activeTrip();
+  if(state.view==='expenses') va.innerHTML=renderExpensesView(trip);
+  else if(state.view==='heatmap') va.innerHTML=renderHeatmapView(trip);
+  else va.innerHTML=renderChartsView(trip);
+  if(state.view==='charts') initCharts(trip);
+}
+
+// ── EXPENSES VIEW ─────────────────────────────────────────────
+function renderExpensesView(trip){
+  const bal=balances(trip);
+  const stxns=settlements(trip);
+  const catTotals={};
+  Object.keys(CATS).forEach(k=>catTotals[k]=0);
+  trip.expenses.forEach(e=>catTotals[e.cat]+=e.amount);
+  const maxCat=Math.max(...Object.values(catTotals),1);
+
+  const listHtml=trip.expenses.length
+    ?[...trip.expenses].reverse().map((e,i)=>{
+      const c=CATS[e.cat];
+      const ph=Math.round(e.amount/e.members.length);
+      return`<div class="ei">
+        <div class="cat-ic" style="background:${c.bg}">${c.icon}</div>
+        <div class="ei-body">
+          <div class="ei-name">${e.desc}</div>
+          <div class="ei-meta">${c.label} · ${e.date.slice(5)} · ${e.members.length}人摊 人均${fmt(ph)}</div>
+        </div>
+        <div class="ei-right">
+          <div class="ei-amt">${fmt(e.amount)}</div>
+          <div class="ei-sub">${e.payer}付</div>
+        </div>
+        <button class="ei-del" onclick="delExpense('${e.id}')">✕</button>
+      </div>`}).join('')
+    :`<div class="empty"><span class="empty-icon">🧾</span><div class="empty-txt">还没有支出记录，点击右上角添加第一笔</div></div>`;
+
+  const budgetBars=Object.entries(CATS).map(([k,c])=>{
+    const spent=catTotals[k];
+    const pct=Math.min(100,Math.round(spent/c.budget*100));
+    const over=spent>c.budget;
+    return`<div class="brow">
+      <div class="brow-icon">${c.icon}</div>
+      <div class="brow-bg"><div class="brow-bar" style="width:${pct}%;background:${over?'var(--coral)':'var(--blue)'}"></div></div>
+      <div class="brow-amt" style="color:${over?'var(--coral)':'var(--muted)'}">${fmt(spent)}</div>
+    </div>`;}).join('');
+
+  const memberRows=trip.members.map((m,i)=>{
+    const [bg,fg]=AV_COLORS[i%AV_COLORS.length];
+    const b=bal[m];
+    return`<div class="mrow">
+      <div class="av" style="background:${bg};color:${fg}">${m[0]}</div>
+      <div class="mrow-name">${m}</div>
+      <div class="mrow-bal" style="color:${b>=0?'var(--teal)':'var(--coral)'}">${b>=0?'+':''}${fmt(b)}</div>
+    </div>`;}).join('');
+
+  const settleRows=stxns.map(t=>`<div class="srow">${t.from}<span class="sarrow">→</span>${t.to}<span style="margin-left:auto;font-weight:500">${fmt(t.amt)}</span></div>`).join('')
+    ||'<div style="font-size:12px;color:var(--muted);padding-top:6px">无需结算 ✓</div>';
+
+  return`<div class="content-grid">
+    <div><div class="expense-list">${listHtml}</div></div>
+    <div>
+      <div class="side-card"><div class="side-title">分类预算</div>${budgetBars}</div>
+      <div class="side-card"><div class="side-title">成员余额</div>${memberRows}<div style="margin-top:8px">${settleRows}</div></div>
+    </div>
+  </div>`;
+}
+
+// ── HEATMAP VIEW ──────────────────────────────────────────────
+function renderHeatmapView(trip){
+  const byDay={};
+  trip.expenses.forEach(e=>byDay[e.date]=(byDay[e.date]||0)+e.amount);
+  const vals=Object.values(byDay);
+  const maxAmt=Math.max(...vals,1);
+  const HM_COLS=['#F1EFE8','#E6F1FB','#85B7EB','#378ADD','#185FA5','#0C447C'];
+
+  // build calendar for start month
+  const startD=new Date(trip.start);
+  const year=startD.getFullYear(), month=startD.getMonth();
+  const firstDay=new Date(year,month,1).getDay();
+  const daysInMonth=new Date(year,month+1,0).getDate();
+  const blanks=firstDay===0?6:firstDay-1;
+
+  let cells='';
+  for(let i=0;i<blanks;i++) cells+=`<div class="hm-empty"></div>`;
+  for(let d=1;d<=daysInMonth;d++){
+    const ds=`${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const amt=byDay[ds]||0;
+    const ci=amt===0?0:Math.ceil(amt/maxAmt*5);
+    cells+=`<div class="hm-cell" style="background:${HM_COLS[ci]}" title="${ds}: ${amt>0?fmt(amt):'无支出'}" onclick="showDayDetail('${ds}')"></div>`;
+  }
+
+  const dowLabels=['一','二','三','四','五','六','日'].map(d=>`<div class="hm-dow">${d}</div>`).join('');
+  const legendHtml=HM_COLS.map((c,i)=>`<div class="hm-leg-sq" style="background:${c}"></div>`).join('');
+
+  return`<div style="max-width:520px">
+    <div class="side-card">
+      <div class="side-title">${year}年${month+1}月 消费热力图</div>
+      <div class="hm-grid">${dowLabels}</div>
+      <div class="hm-grid" id="hm-grid">${cells}</div>
+      <div class="hm-legend"><span class="hm-leg-txt">少</span>${legendHtml}<span class="hm-leg-txt">多</span></div>
+      <div class="day-detail" id="day-detail"><span style="font-size:12px;color:var(--muted)">点击日期格子查看当日明细</span></div>
+    </div>
+  </div>`;
+}
+
+function showDayDetail(ds){
+  const trip=activeTrip(); if(!trip)return;
+  const exps=trip.expenses.filter(e=>e.date===ds);
+  const el=document.getElementById('day-detail'); if(!el)return;
+  if(!exps.length){el.innerHTML=`<span style="font-size:12px;color:var(--muted)">${ds} 无支出</span>`;return;}
+  const total=exps.reduce((s,e)=>s+e.amount,0);
+  el.innerHTML=`<div style="font-size:13px;font-weight:500;margin-bottom:6px">${ds} · 合计 ${fmt(total)}</div>`
+    +exps.map(e=>`<div class="day-detail-row"><span>${CATS[e.cat].icon} ${e.desc}</span><span style="font-weight:500">${fmt(e.amount)}</span></div>`).join('');
+}
+
+// ── CHARTS VIEW ───────────────────────────────────────────────
+let chartInstances=[];
+function renderChartsView(trip){
+  return`<div class="chart-grid">
+    <div class="chart-card"><div class="chart-title">分类支出占比</div><div class="chart-wrap"><canvas id="chart-pie"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">每日消费趋势</div><div class="chart-wrap"><canvas id="chart-line"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">成员支付金额</div><div class="chart-wrap"><canvas id="chart-bar"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">预算 vs 实际</div><div class="chart-wrap"><canvas id="chart-budget"></canvas></div></div>
+  </div>`;
+}
+
+function initCharts(trip){
+  chartInstances.forEach(c=>{try{c.destroy()}catch(e){}});
+  chartInstances=[];
+  const catTotals={};Object.keys(CATS).forEach(k=>catTotals[k]=0);
+  trip.expenses.forEach(e=>catTotals[e.cat]+=e.amount);
+
+  const byDay={};
+  trip.expenses.forEach(e=>byDay[e.date]=(byDay[e.date]||0)+e.amount);
+  const dayDates=Object.keys(byDay).sort();
+  const dayAmts=dayDates.map(d=>Math.round(byDay[d]*(state.liveRates[state.curCur]||1)));
+
+  const paidByMember={};trip.members.forEach(m=>paidByMember[m]=0);
+  trip.expenses.forEach(e=>paidByMember[e.payer]=(paidByMember[e.payer]||0)+e.amount);
+
+  const catColors=['#1D9E75','#185FA5','#BA7517','#993556','#888780'];
+  const catLabels=Object.entries(CATS).map(([k,c])=>`${c.icon} ${c.label}`);
+  const catVals=Object.keys(CATS).map(k=>Math.round(catTotals[k]*(state.liveRates[state.curCur]||1)));
+
+  chartInstances.push(new Chart(document.getElementById('chart-pie'),{type:'doughnut',data:{labels:catLabels,datasets:[{data:catVals,backgroundColor:catColors,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11},boxWidth:10,padding:8}}}}}));
+
+  chartInstances.push(new Chart(document.getElementById('chart-line'),{type:'line',data:{labels:dayDates.map(d=>d.slice(5)),datasets:[{data:dayAmts,borderColor:'#185FA5',backgroundColor:'rgba(24,95,165,.08)',fill:true,tension:.3,pointRadius:3,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>SYMS[state.curCur]+v},grid:{color:'rgba(0,0,0,.04)'}},x:{grid:{display:false}}}}}));
+
+  const memberAmts=trip.members.map(m=>Math.round((paidByMember[m]||0)*(state.liveRates[state.curCur]||1)));
+  chartInstances.push(new Chart(document.getElementById('chart-bar'),{type:'bar',data:{labels:trip.members,datasets:[{data:memberAmts,backgroundColor:AV_COLORS.map(c=>c[0]),borderRadius:4,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>SYMS[state.curCur]+v},grid:{color:'rgba(0,0,0,.04)'}},x:{grid:{display:false}}}}}));
+
+  const budgetData=Object.entries(CATS).map(([k,c])=>Math.round(c.budget*(state.liveRates[state.curCur]||1)));
+  chartInstances.push(new Chart(document.getElementById('chart-budget'),{type:'bar',data:{labels:catLabels,datasets:[{label:'预算',data:budgetData,backgroundColor:'rgba(24,95,165,.15)',borderRadius:3,borderWidth:0},{label:'实际',data:catVals,backgroundColor:catColors,borderRadius:3,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11},boxWidth:10,padding:8}}},scales:{y:{ticks:{callback:v=>SYMS[state.curCur]+v},grid:{color:'rgba(0,0,0,.04)'}},x:{grid:{display:false}}}}}));
+}
+
+// ── AI PANEL ──────────────────────────────────────────────────
+function renderAI(trip){
+  const total=totalCNY(trip.expenses);
+  const rem=trip.budget-total;
+  const catTotals={};Object.keys(CATS).forEach(k=>catTotals[k]=0);
+  trip.expenses.forEach(e=>catTotals[e.cat]+=e.amount);
+  const topCat=Object.entries(catTotals).sort((a,b)=>b[1]-a[1])[0];
+  const avgDay=Math.round(total/Math.max(trip.expenses.length,1));
+  const bal=balances(trip);
+  const maxOwer=trip.members.filter(m=>bal[m]<0).sort((a,b)=>bal[a]-bal[b])[0];
+  const stxns=settlements(trip);
+
+  return`<div class="ai-panel">
+    <div class="ai-header"><div class="ai-gem">✦</div><div class="ai-label">AI 账单助手</div></div>
+    <div class="ai-body">
+      本次旅行已记录 <strong>${trip.expenses.length} 笔支出</strong>，合计 <strong>${fmt(total)}</strong>，
+      ${rem>=0?`预算尚余 <strong style="color:var(--teal)">${fmt(rem)}</strong>，消费节奏良好 ✓`
+              :`已超预算 <strong style="color:var(--coral)">${fmt(-rem)}</strong>，建议控制后续消费`}。
+      最大支出类别为 <strong>${CATS[topCat[0]].icon} ${CATS[topCat[0]].label}（${Math.round(topCat[1]/total*100)}%）</strong>，
+      ${maxOwer?`<strong>${maxOwer}</strong> 目前净欠最多（${fmt(-bal[maxOwer])}），建议优先结算。`:''} 
+      共需 <strong>${stxns.length} 笔转账</strong>即可完成结算。
+    </div>
+    <div class="ai-actions">
+      <button class="btn-outline" style="font-size:12px;padding:5px 12px" onclick="exportPDF()">导出完整账单 PDF</button>
+    </div>
+  </div>`;
+}
+
+// ── ACTIONS ───────────────────────────────────────────────────
+function setCur(c){
+  state.curCur=c;save();renderAll();
+}
+
+function switchView(v,el){
+  state.view=v;
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  if(el)el.classList.add('active');
+  renderAll();
+}
+
+function selectTrip(id){
+  state.activeTripId=id;state.view='expenses';save();renderAll();
+}
+
+function deleteTrip(id){
+  if(!confirm('确认删除这段旅行及所有数据？'))return;
+  state.trips=state.trips.filter(t=>t.id!==id);
+  if(state.activeTripId===id) state.activeTripId=state.trips[0]?.id||null;
+  save();renderAll();
+}
+
+function openExpModal(){
+  const trip=activeTrip();if(!trip)return;
+  document.getElementById('em-payer').innerHTML=trip.members.map(m=>`<option>${m}</option>`).join('');
+  document.getElementById('em-chips').innerHTML=trip.members.map(m=>`<button class="chip on" onclick="this.classList.toggle('on')">${m}</button>`).join('');
+  document.getElementById('em-date').value=trip.start;
+  openModal('exp-modal');
+}
+
+function saveExpense(){
+  const trip=activeTrip();if(!trip)return;
+  const desc=document.getElementById('em-desc').value.trim();
+  const amt=parseFloat(document.getElementById('em-amt').value);
+  const cat=document.getElementById('em-cat').value;
+  const payer=document.getElementById('em-payer').value;
+  const date=document.getElementById('em-date').value;
+  const members=[...document.querySelectorAll('#em-chips .chip.on')].map(c=>c.textContent);
+  if(!desc||!amt||!members.length)return;
+  trip.expenses.push({id:uid(),desc,amount:amt,cat,payer,members,date});
+  save();closeModal('exp-modal');renderAll();
+  document.getElementById('em-desc').value='';document.getElementById('em-amt').value='';
+}
+
+function delExpense(eid){
+  const trip=activeTrip();if(!trip)return;
+  trip.expenses=trip.expenses.filter(e=>e.id!==eid);
+  save();renderAll();
+}
+
+// ── CREATE TRIP ───────────────────────────────────────────────
+function initEmojiGrid(){
+  const g=document.getElementById('trip-emoji-grid');if(!g)return;
+  g.innerHTML=EMOJIS.map(e=>`<div class="emoji-opt${e===state.pickedEmoji?' picked':''}" onclick="pickEmoji('${e}',this)">${e}</div>`).join('');
+}
+function pickEmoji(e,el){
+  state.pickedEmoji=e;
+  document.querySelectorAll('.emoji-opt').forEach(o=>o.classList.remove('picked'));
+  el.classList.add('picked');
+}
+
+function createTrip(){
+  const name=document.getElementById('tm-name').value.trim();
+  const start=document.getElementById('tm-start').value;
+  const end=document.getElementById('tm-end').value;
+  const membersRaw=document.getElementById('tm-members').value;
+  const budget=parseFloat(document.getElementById('tm-budget').value)||10000;
+  if(!name||!start||!end)return;
+  const members=membersRaw.split(',').map(m=>m.trim()).filter(Boolean);
+  if(!members.length)return;
+  const id='trip_'+Date.now();
+  state.trips.push({id,name,emoji:state.pickedEmoji,start,end,members,budget,expenses:[]});
+  state.activeTripId=id;state.view='expenses';
+  save();closeModal('trip-modal');renderAll();
+  ['tm-name','tm-start','tm-end','tm-members','tm-budget'].forEach(i=>document.getElementById(i).value='');
+}
+
+// ── MODAL HELPERS ─────────────────────────────────────────────
+function openModal(id){
+  document.getElementById(id).classList.add('open');
+  if(id==='trip-modal')initEmojiGrid();
+}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',function(e){if(e.target===this)this.classList.remove('open')}));
+
+// ── PDF EXPORT ────────────────────────────────────────────────
+function exportPDF(){
+  const trip=activeTrip();if(!trip)return;
+  // Build printable HTML in new window
+  const total=totalCNY(trip.expenses);
+  const bal=balances(trip);
+  const stxns=settlements(trip);
+  const catTotals={};Object.keys(CATS).forEach(k=>catTotals[k]=0);
+  trip.expenses.forEach(e=>catTotals[e.cat]+=e.amount);
+
+  const rows=trip.expenses.map(e=>`
+    <tr>
+      <td>${e.date}</td>
+      <td>${CATS[e.cat].icon} ${e.desc}</td>
+      <td>${CATS[e.cat].label}</td>
+      <td>${e.payer}</td>
+      <td style="text-align:right;font-weight:500">${fmt(e.amount)}</td>
+    </tr>`).join('');
+
+  const memberRows=trip.members.map((m,i)=>{
+    const b=bal[m];
+    return`<tr><td>${m}</td><td style="color:${b>=0?'#0F6E56':'#993C1D'};font-weight:500">${b>=0?'+':''}${fmt(b)}</td></tr>`;
+  }).join('');
+
+  const settleRows=stxns.map(t=>`<tr><td>${t.from} → ${t.to}</td><td style="font-weight:500">${fmt(t.amt)}</td></tr>`).join('')
+    ||`<tr><td colspan="2" style="color:#888">无需转账</td></tr>`;
+
+  const html=`<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"/><title>${trip.name} 账单</title>
+  <style>
+    body{font-family:'Helvetica Neue',sans-serif;margin:0;padding:32px;color:#1A1814;font-size:13px;line-height:1.6}
+    h1{font-size:24px;margin-bottom:4px}
+    .sub{color:#8A877F;font-size:12px;margin-bottom:24px}
+    table{width:100%;border-collapse:collapse;margin-bottom:24px}
+    th{text-align:left;font-size:11px;color:#8A877F;letter-spacing:.05em;text-transform:uppercase;border-bottom:2px solid #E8E4DC;padding:6px 0}
+    td{padding:7px 0;border-bottom:1px solid #F0EDE7}
+    .section{font-size:11px;font-weight:600;color:#8A877F;letter-spacing:.07em;text-transform:uppercase;margin:20px 0 10px;border-top:2px solid #E8E4DC;padding-top:12px}
+    .total{font-size:18px;font-weight:600;text-align:right;margin-top:12px}
+    @media print{body{padding:20px}}
+  </style></head><body>
+  <h1>${trip.emoji} ${trip.name}</h1>
+  <div class="sub">${trip.start} — ${trip.end} · ${trip.members.length}人同行 · 导出于 ${new Date().toLocaleDateString('zh')}</div>
+
+  <div class="section">支出明细</div>
+  <table><thead><tr><th>日期</th><th>描述</th><th>分类</th><th>付款人</th><th style="text-align:right">金额</th></tr></thead>
+  <tbody>${rows}</tbody></table>
+  <div class="total">合计 ${fmt(total)}</div>
+
+  <div class="section">分类汇总</div>
+  <table><thead><tr><th>分类</th><th style="text-align:right">金额</th><th style="text-align:right">占比</th></tr></thead>
+  <tbody>${Object.entries(CATS).map(([k,c])=>`<tr><td>${c.icon} ${c.label}</td><td style="text-align:right">${fmt(catTotals[k])}</td><td style="text-align:right;color:#8A877F">${Math.round(catTotals[k]/total*100)}%</td></tr>`).join('')}</tbody></table>
+
+  <div class="section">成员余额</div>
+  <table><thead><tr><th>成员</th><th>余额</th></tr></thead><tbody>${memberRows}</tbody></table>
+
+  <div class="section">建议转账</div>
+  <table><thead><tr><th>转账</th><th>金额</th></tr></thead><tbody>${settleRows}</tbody></table>
+
+  <script>window.onload=()=>window.print()<\/script>
+  </body></html>`;
+
+  const w=window.open('','_blank');
+  w.document.write(html);
+  w.document.close();
+}
+
+// ── INIT ──────────────────────────────────────────────────────
+load();
+renderAll();
+fetchRates();
+</script>
+</body>
+</html>
